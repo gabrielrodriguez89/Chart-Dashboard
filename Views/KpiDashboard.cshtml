@@ -1,0 +1,397 @@
+﻿@using Newtonsoft.Json;
+@model Navigator.Contracts.Models.KpiDashboardContract
+
+@{
+    ViewBag.Title = "Kpi Dashboard";
+    ViewBag.BannerClass = "port-land-background";
+    ViewBag.ActionLink = Html.ActionLink("Corporate Communications", "CorporateCommunications", "Divisions");
+    Layout = "~/Views/Shared/_LayoutSecondaryPages.cshtml";
+    bool isAdmin = ViewBag.IsAdmin;
+    var CurrentEmmaGroups = ViewBag.EmmaGroups;
+
+}
+@section styles {
+    @Styles.Render("~/content/ckeditor")
+    @Styles.Render("~/Content/azure-storage-plugin")
+    @Styles.Render("~/Content/KpiDashboard.css")
+    <style>
+
+    
+    </style>
+}
+
+<div id="dashboard" class="kpi-dashboard-wrapper">
+    <section class="loading-page" v-if="data.isLoading">
+        <h2>Loading Dashboard...</h2>
+    </section>
+    <section v-cloak v-else v-for="(category, index) in data.Categories" :class="index % 2 === 1 ? 'port-metal-background' : ''" :style="index % 2 === 1 ? 'color: black' : ''">
+        <div class="btn-group-inline pull-right">
+            <button class="port-chart-button" v-show="!newChart(category) && isAdmin" :data-target="'#new-chart-modal' + category.Id" data-toggle="modal">
+                <span data-toggle="tooltip" title="Add Chart" class="glyphicon glyphicon-plus text-success"></span>
+            </button>
+        </div>
+        <div class="container">
+            <h2 class="text-center">{{category.Name }}</h2>
+            <div class="row chart-flow">
+                <div class="chart-component col-sm-6" v-for="(chart, chartIndex) in category.Charts">
+                    <chart-component :key="chart.Id" :chart-data="chart" @@chart-updated="updateChart" @@my-emma-import="setChartId" @@chart-deleted="deleteChart(chart.Id, chart.CategoryId)"></chart-component>
+                    <ckeditor :id="'ckeditor-' + chart.Id" v-if="chart.AdditionalContent" v-model="chart.AdditionalContent.Content" @*@@update-content="addChartContent(chart)"*@ opts="@Url.Content("~/Scripts/ckeditor/config-kpi.js")" ></ckeditor>
+                </div>
+            </div>
+        </div>
+        <!-- Modal New Charts-->
+        <div class="modal fade" :id="'new-chart-modal' + category.Id" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Create Chart</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="new-chart-form">
+                            <label>Chart Title</label>
+                            <input type="text" v-model="newChartName" placeholder="Title" class="form-control" @@keydown.enter="createNewChart(category)" />
+                            <!--change chart type-->
+                            <label>Chart Type</label>
+                            <select v-model="newChartType" class="form-control">
+                                <option disabled value="">Chart Type</option>
+                                <option selected>line</option>
+                                <option>column</option>
+                                <option>pie</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>&nbsp;Cancel
+                        </button>
+                        <button @@click.prevent="createNewChart(category)" type="button" data-dismiss="modal" class="btn btn-success">
+                            <span class="glyphicon glyphicon-check" aria-hidden="true"></span>&nbsp;Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Modal Import-->
+        <div class="modal fade" :id="'my-emma'" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">Import From MyEmma</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div v-show="!filter" class="new-chart-form">
+                            <label>Mailing Name</label>
+                            <select id="ModalMyEmma" v-on:change="selectMailing" class="form-control select2">
+                                <option value="-1"> -Select Mailing-</option>
+                                <option v-for="data in myEmmaGroups"
+                                        :value="data.member_group_id"
+                                        :data-name="data.group_name"
+                                        :data-count="data.active_count">
+                                    {{ data.group_name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div @*v-show="!filter"*@ class="modal-footer">
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">
+                            <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>&nbsp;Cancel
+                        </button>
+                        <button @@click.prevent="importMyEmmaById()" type="button" class="btn btn-success" id="import-emma-confirm-btn">
+                            <span class="glyphicon glyphicon-check" aria-hidden="true"></span>&nbsp;Import
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts
+{
+    @Scripts.Render("~/bundles/vue")
+
+    @Scripts.Render("~/bundles/modernizr")
+    @Scripts.Render("~/bundles/ckeditor")
+    @Scripts.Render("~/bundles/jqueryval")
+    @Scripts.Render("~/bundles/port-azure-storage-core")
+    @Scripts.Render("~/bundles/port-azure-storage-picker")
+    @*@Scripts.Render("~/bundles/highchart")*@
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    @Scripts.Render("~/bundles/lodash")
+    @Scripts.Render("~/bundles/kpi-vue")
+
+    <script>
+     $(function () {
+        var model = new Vue({
+            el: '#dashboard',
+            data: function () {
+                return {
+                    data: @Html.Raw(JsonConvert.SerializeObject(Model)),
+                    myEmmaGroups: @Html.Raw(JsonConvert.SerializeObject(CurrentEmmaGroups)),
+                    newChartName: "",
+                    newChartType: "",
+                    fullScreen: false,
+                    groupName: "",
+                    groupId: 0,
+                    count: 0,
+                    chartId: 0,
+                    categoryId: 0,
+                    filter: false,
+                    startDate: null,
+                    endDate: null,
+                    filterName: "",
+                    showEditor: false,
+                    isLoading: true,
+                    isAdmin: @Convert.ToString(isAdmin).ToLower(),
+                    content: ""
+                }
+            },
+            beforeCreate: function () {
+                this.isLoading = true;
+            },
+            mounted: function() {
+                var self = this;
+                //window.addEventListener("beforeunload",
+                //    function(e) {
+                //        if (self.anyDirty()) {
+                //            var confirmationMessage = "If you leave before saving, your changes will be lost.";
+
+                //            (e || window.event).returnValue = confirmationMessage; //Gecko + IE
+                //            return confirmationMessage; //Gecko + Webkit, Safari, Chrome etc.
+                //        }
+                //    });
+
+                self.isLoading = false;
+
+            },
+            computed: {
+                setContent: function (content) {
+                    if (content === null || !content) {
+                        return "";
+                    }
+                    else {
+                        return content;
+                    }
+                }
+            },
+            methods: {
+                any : function() {
+                    return _.some(this.$children,
+                        function(c) {
+                            return c.dirty;
+                        });
+                },
+                setChartId: function(chart, category) {
+                    var self = this;
+                    self.chartId = chart;
+                    self.categoryId = category;
+                },
+                createNewChart: function(category) {
+                    var self = this;
+
+                    category.Charts.push({
+                        CategoryId: category.Id,
+                        ChartType: self.newChartType === "" ? "line" : self.newChartType,
+                        Id: 0,
+                        AdditionalContent:
+                            {
+                                Content: "",
+                                Id: 0
+                            },
+                        DataSets: [
+                            {
+                                Name: "Current",
+                                Points: [
+                                    {
+                                        X: "",
+                                        Y: "0"
+                                    }
+                                ]
+                            },
+                            {
+                                Name: "Goal",
+                                Points: [
+                                    {
+                                        X: "",
+                                        Y: "10"
+                                    }
+                                ]
+                            }
+                        ],
+                        Legend: false,
+                        Title: self.newChartName,
+                        XAxisLabel: "",
+                        YAxisLabel: ""
+                    });
+                    self.newChartName = "";
+                    self.newChartType = "";
+                    $('#new-chart-modal' + category.Id).modal('hide');
+                },
+                selectMailing: function(event) {
+                    var selected = $("#ModalMyEmma").select2().find(":selected");
+                    this.groupName = selected.data("name");
+                    this.groupId = selected.val();
+                    this.count = selected.data("count");
+                },
+                toggleFilter: function() {
+                    this.filter = !this.filter;
+                },
+                setData: function(count, chartId, categoryId) {
+                    var self = this;
+
+                    var category = _.find(this.data.Categories,
+                        function(c) {
+                            return c.Id === categoryId;
+                        });
+                    var chart = _.find(category.Charts,
+                        function(c) {
+                            return c.Id === chartId;
+                        });
+
+                    var length = chart.DataSets.length;
+                    var y = count;
+                    var goal = y * .10 + y;
+                    var date = new Date();
+                    var year = date.getFullYear();
+                    var month = date.getMonth().toString() < 2
+                        ? "0" + (1 + date.getMonth())
+                        : (1 + date.getMonth());
+                    var x = year + "-" + month;
+                    // set new series name
+                    for (var i = 0; i < length; i++) {
+                        if (i === 0) {
+                            chart.DataSets[i].Points.push({
+                                X: x,
+                                Y: y
+                            });
+                        } else {
+                            chart.DataSets[i].Points.push({
+                                X: x,
+                                Y: goal
+                            });
+                        }
+                    }
+                    var child = _.find(this.$children,
+                        function(c) {
+                            return c.chart.Id === chartId;
+                        })
+                    child.chart = _.cloneDeep(child.chartData);
+                },
+                newChart: function(category) {
+                    return _.some(category.Charts,
+                        function(c) {
+                            return c.Id === 0;
+                        });
+                },
+                cloneData: function(data) {
+                    var self = this;
+                    self.myEmmaSearch = _.cloneDeep(data);
+                    self.filter = false;
+                ,       
+                updateChart: function(newId, categoryId) {
+                    var category = _.find(this.data.Categories,
+                        function(c) {
+                            return c.Id === categoryId;
+                        });
+                    var chart = _.find(category.Charts,
+                        function(c) {
+                            return c.Id === 0;
+                        });
+                    chart.Id = newId;
+                },
+                FilterMyEmma: function() {
+                    var self = this;
+                    var year = this.startDate.substr(0, 4).toString();
+                    //var month = this.startDate.substr(5, 2).toString();
+
+                    Messenger().run({
+                            action: $.ajax,
+                            successMessage: "Import successful",
+                            errorMessage: "There was an error importing data.",
+                            progressMessage: "Importing..."
+                        },
+                        {
+                            method: "GET",
+                            url: "@Url.Action("GetMyEmmaTotalsByFilter", "Divisions")",
+                            ,
+                            data: {
+                                name: self.filterName,
+                                year: year
+                            },
+                            success: function(data) {
+                                if (data) {
+
+                                    self.cloneData(data);
+                                }
+                            }
+                        });
+                },
+                importMyEmmaById: function() {
+                    var self = this;
+                    var count = self.count;
+                    var optOut = self.OptOutCounter;
+
+                    self.setData(count, self.chartId, self.categoryId);
+
+                },
+                deleteChart: function(chartId, categoryId) {
+                    if (confirm(
+                        "You are about to delete the chart, all corresponding data will also be deleted. Would you like to continue?")
+                    ) {
+                        var self = this;
+
+                        if (!chartId) {
+                            self.removeChart(chartId, categoryId);
+                        } else {
+                            Messenger().run({
+                                    action: $.ajax,
+                                    successMessage: "Chart has been deleted",
+                                    errorMessage: "There was an error deleting.",
+                                    progressMessage: "Deleting..."
+                                },
+                                {
+                                    method: "DELETE",
+                                    url: "@Url.Action("DeleteKPIChart", "KpiDashboard")",
+                                    ,
+                                    data: "id=" + chartId,
+                                    success: function() {
+
+                                        self.removeChart(chartId, categoryId);
+                                    }
+                                });
+                        }
+                    } else {
+                        return null;
+                    }
+                },
+                removeChart: function(chartId, categoryId) {
+                    var self = this;
+
+                    var category = _.find(self.data.Categories,
+                        function(c) {
+                            return c.Id === categoryId;
+                        });
+                    var index = _.findLastIndex(category.Charts,
+                        function(c) {
+                            return c.Id === chartId;
+
+                        });
+
+                    category.Charts.splice(index, 1);
+                }
+            }
+        });
+    });
+    </script>
+    @Scripts.Render("~/Scripts/select2.min.js")
+    <script>
+        $(function () {
+
+            $(".select2").select2({
+                width: "resolve"
+            });
+        });
+    </script>
+}
