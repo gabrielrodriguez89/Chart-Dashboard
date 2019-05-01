@@ -1,6 +1,6 @@
 ﻿$(function () {
     Vue.component('chart-component', {
-        props: ['chart-data'],
+        props: ['chart-data', 'editor-toggle'],
         data: function () {
             return {
                 // start of drag
@@ -43,9 +43,20 @@
                 }
                 return this.chart.DataSets[0].Points.length === 0;
             },
-           
+            updateClone: function () {
+                var reclone = !_.isEqual(this.chart, this.chartData) && _.isEqual(this.chart, this.originalChartData);
+
+                if (reclone) {
+                    this.chart = _.cloneDeep(this.chartData);
+                }
+
+                return reclone;
+            },
             dirty: function () {
-                return !this.chart.Id || !_.isEqual(this.chart, this.chartData) || !_.isEqual(this.chart, this.originalChartData);
+
+                var isDirty = !this.chart.Id || !_.isEqual(this.chart, this.originalChartData);
+   
+                return isDirty;
             },
             dirtyAddDataSets: function () {
                 if (this.Series === null) {
@@ -53,6 +64,7 @@
                 }
                 return this.newDatasetName !== "" && this.chart.DataSets[0].Points[0].X !== "";
             },
+
             highChartModel: function () {
                 if (!this.chart || this.chart.ChartType === 'table') {
                     return null;
@@ -186,7 +198,16 @@
             },
             isChart: function () {
                 return this.chart.ChartType !== 'table';
+            },
+            openEditor: function () {
+                var self = this;
+ 
+                if (self.editorToggle.Id === self.chart.Id) {
+                    return self.editorToggle.Toggle;
+                }
+
             }
+
         },
         methods: {
             // init drag event for charts
@@ -264,6 +285,8 @@
             changePoint: function (point, dataIndex, series) {
                 if (!isNaN(parseInt(point)) && Series !== null) {
                     series.Points[dataIndex].Y = parseInt(point);
+                    // setOptions doesn't work for some reason
+                    //this.chart.plotOptions = { series: { animation: false } };
                     this.redrawChart();
                 }
             },
@@ -280,7 +303,12 @@
                 var self = this;
 
                 if (confirm("If you cancel you will lose all changes, would you like to continue?")) {
-                    self.chart = _.cloneDeep(self.chartData);
+                    if (self.chart.AdditionalContent !== self.originalChartData.AdditionalContent) {
+                        //self.chartData.AdditionalContent.Content = "";
+                        //self.originalChartData.AdditionalContent.Content = "";
+                        self.chart.AdditionalContent.Content = self.originalChartData.AdditionalContent.Content;
+                    }
+                    self.chart = _.cloneDeep(self.originalChartData);
                     self.resetAdminToolDisplay();
                 }
             },
@@ -376,6 +404,10 @@
                 if (this.chart.AdditionalContent.Content !== this.chartData.AdditionalContent.Content) {
                     this.chart.AdditionalContent = _.cloneDeep(this.chartData.AdditionalContent);
                 }
+                //AddAntiForgeryToken = function (data) {
+                //    data.__RequestVerificationToken = $('input[name=__RequestVerificationToken]').val();
+                //    return data;
+                //};
                 Messenger().run({
                     action: $.ajax,
                     successMessage: "Chart has been saved",
@@ -387,14 +419,16 @@
                         url: self.chart.Id
                             ? "/KpiDashboard/EditKPIChart"
                             : "/KpiDashboard/CreateKPIChart",
-
+                        //data: AddAntiForgeryToken({
+                        //   Category: category
+                        //}),
                         data: self.chart,
                         success: function (newId) {
-                            if (Number.isInteger(newId)) {
+                            if (Number.isInteger(newId) && self.chart.Id === 0) {
                                 self.chart.Id = newId;
                                 self.$emit("chart-updated", newId, self.chart.CategoryId);
                             }
-                            self.chartData = _.cloneDeep(self.chart);
+                            
                             self.originalChartData = _.cloneDeep(self.chart);
                             self.resetAdminToolDisplay();
                         }
@@ -404,20 +438,16 @@
             deletePoints: function (point) {
                 var self = this;
 
-                if (confirm(
-                    "By deleting this field, all corresponding fields will also be deleted. Would you like to continue?")
-                ) {
-                    _.forEach(self.chart.DataSets,
-                        function (s) {
-                            var i = _.findIndex(s.Points,
-                                function (p) {
-                                    return p.X === point.X;
-                                });
-                            if (i !== null) {
-                                s.Points.splice(i, 1);
-                            }
-                        });
-                }
+                _.forEach(self.chart.DataSets,
+                    function (s) {
+                        var i = _.findIndex(s.Points,
+                            function (p) {
+                                return p.X === point.X;
+                            });
+                        if (i !== null) {
+                            s.Points.splice(i, 1);
+                        }
+                    });
             },
             deleteDataPoints: function () {
                 this.deleteBySelection = !this.deleteBySelection;
@@ -425,11 +455,8 @@
             deleteDataSet: function (index) {
                 var self = this;
 
-                if (confirm(
-                    "By deleting this column, all corresponding data will also be deleted. Would you like to continue?")
-                ) {
-                    self.chart.DataSets.splice(index, 1);
-                }
+                self.chart.DataSets.splice(index, 1);
+             
             },
             sortDatasets: function (order, dataset) {
                 var self = this;
@@ -469,12 +496,20 @@
         created: function () {
             if (this.chart === null) {
                 this.chartData.DataSets = this.sortDatasets('asc', this.chartData.DataSets);
+                if (!this.chartData.AdditionalContent.Content) {
+                    this.chartData.AdditionalContent.Content = "";
+                }
+
                 this.cloneData();
             }
         },
         mounted: function () {
-      
+            //if (this.chart.CategoryId === 1) {
+            //    var temp = this.sortDatasets('asc', this.chart.DataSets);
+            //    this.chart.DataSets = temp;
+            //}
             if (this.highChartModel) {
+                
                 this.highChart = Highcharts.chart(this.$refs.chartDiv, this.highChartModel);
             }
             window.addEventListener('mouseup', this.closeDragElement());
@@ -500,20 +535,27 @@
             },
             pointsToShow: function () {
                 this.redrawChart();
+            },
+            chartData: {
+                handler: function () {
+                    this.chart = this.chartData;
+                
+                },
+                deep: true
             }
         },
         template: 
-        '<div class="port-chart" style="width: 100%;">'
-	+ '<div class="btn-group-inline chart-btn-group" v-show="!overlayOpen">'
+    '<div class="port-chart" style="width: 100%;">'
+         + '<div class="btn-group-inline chart-btn-group" v-show="!overlayOpen && !openEditor">'
 			+ '<button data-toggle="tooltip" title="Edit Chart" @click="toggleOverlay" class="port-chart-button"><span class="glyphicon glyphicon-cog"></span></button>'
 			+ '<button data-toggle="tooltip" title="Delete Chart" @click="$emit(\'chart-deleted\')" class="port-chart-button"><span class="glyphicon glyphicon-trash text-danger"></span></button>'
 			+ '<button v-if="chart.CategoryId === 1" class="myemma-btn" @click="openModal"> <span>Import</span></button>'
-		+ '<h4 v-if="chart.Id === 0 || dirty" class="text-center text-danger " style="margin: 0; " > <span class="glyphicon glyphicon-exclamation-sign text-danger"></span>SAVE CHANGES BEFORE EXITING</h4>'
-	+ '</div>'
+            + '<h4 v-if="chart.Id === 0 || dirty" class="text-center text-danger " style="margin: 0; " > <span class="glyphicon glyphicon-exclamation-sign text-danger"></span>SAVE CHANGES BEFORE EXITING</h4>'
+        + '</div>'
 	+ '<div :class="[\'drag-div\', {dark: isActive}]" @mousedown="dragElement" @mousemove="drag" @mouseup="closeDragElement" >'
-	+ '<div class="chart-overlay" v-show="overlayOpen">'
+	+ '<div class="chart-overlay" v-show="overlayOpen  && !openEditor">'
 		+ '<div class="chart-content">'
-			+ '<div class="button-group-inline top-icon">'
+			+ '<div class="button-group-inline top-icon" >'
 				+ '<div class="pull-right" data-toggle="tooltip" title="Close" @click="toggleOverlay">'
 					+ '<span class="fa fa-close" data-toggle="tooltip" data-placement="bottom" title="close"></span>'
 				+ '</div>'
@@ -649,7 +691,15 @@
 									+ '</div>'
 									+ '<hr />'
 								+ '</div>'
-							+ '</div>'
+                            + '</div>'
+                            + '<div class="btn-group-inline save-2" v-show="dirty" v-if="Series !== null">'
+                                + '<button type="button" class="btn btn-danger email-form-submit-btn pull-left" :disabled="chart.Id === 0 || !dirty  " @click.prevent="cancelChanges">'
+                                + 'Cancel'
+                                + '</button>'
+                                + '<button type="button" class="btn btn-success email-form-submit-btn pull-right" :disabled="!dirty || disableSave " @click.prevent="saveChanges" >'
+                                + 'Save'
+                                + '</button >'
+                            + '</div>'
 						+ '</div>'
 						+ '<div class="text-danger text-center">'
 							+ '<h4 v-if="disableSave && Series !== null"><span class="glyphicon glyphicon-exclamation-sign"></span> <strong>You need one set of points in the chart in order to save.</strong></h4>'
@@ -661,13 +711,13 @@
 								+ '<span @click.prevent="addNewDataset" class="glyphicon glyphicon-ok text-success add-series-btn " data-toggle="tooltip" data-placement="bottom" title="Save"></span>'
 							+ '</div>'
 						+ '</div>'
-					+ '</div>'
+                     + '</div>'
 				+ '</form>'
 			+ '</div>'
 		+ '</div>'
 	+ '</div>'
-	+ '<div ref="chartDiv" v-show="isChart && Series !== null"></div>'
-		+ '<div v-if="!isChart && Series !== null">'
+	+ '<div ref="chartDiv" v-show="isChart && Series !== null "></div>'
+		+ '<div v-if="!isChart && Series !== null && !openEditor">'
 		+ '<br />'
 		+ '<div>'
 			+ '<strong>{{ chart.Title }}</strong>'
@@ -704,13 +754,13 @@
 			+ '</tbody>'
 		+ '</table>'
 	+ '</div>'
-	+ '<div class="btn-group-inline save" v-show="editAllSeries || dirty && !seriesAdded && !showSeries" v-if="Series !== null">'
-		+ '<button type="button" class="btn btn-danger email-form-submit-btn pull-left" :disabled="chart.Id === 0 || !dirty  " @click.prevent="cancelChanges">'
-			+ 'Revert'
+            + '<div class="btn-group-inline save" v-show="dirty && !openEditor" v-if="Series !== null">'
+        + '<button type="button" class="btn btn-success email-form-submit-btn pull-right" :disabled="!dirty || disableSave " @click.prevent="saveChanges" >'
+        + 'Save'
+        + '</button >'
+		+ '<button type="button" class="btn btn-danger email-form-submit-btn pull-right" :disabled="chart.Id === 0 || !dirty  " @click.prevent="cancelChanges">'
+			+ 'Cancel'
 		+ '</button>'
-		+ '<button type="button" class="btn btn-success email-form-submit-btn pull-right" :disabled="!dirty || disableSave " @click.prevent="saveChanges" >'
-			+ 'Save'
-		+ '</button >'
 	+ '</div>'
 + '</div>'
     });

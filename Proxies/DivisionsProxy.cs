@@ -15,7 +15,7 @@ namespace Navigator.Client.Proxies
     {
         #region DECLARATIONS
 
-        private const string KpiDashboardDiscoveryRoute = "RemovedRouteConfig";
+        private const string KpiDashboardDiscoveryRoute = "navigator/KpiDashboard/v1";
 
         private readonly IClient _client;
 

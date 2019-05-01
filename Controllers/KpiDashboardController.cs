@@ -29,6 +29,7 @@ namespace Navigator.Client.Controllers
         #endregion
 
         #region KPI DASHBOARD
+        // KPI Dashboard MUST go before corporate comms route
         [HttpGet]
         public async Task<ActionResult> GetCurrentMyEmmaTotals(int mailingId, string name)
         {
@@ -43,6 +44,7 @@ namespace Navigator.Client.Controllers
             ViewBag.EmmaMailings = result;
             return Json(result, JsonRequestBehavior.AllowGet);
         }
+        //TODO: add await and async after testing
         [HttpGet]
         [Route("KPIDashboard")]
         public async Task<ActionResult> KPIDashboard()
@@ -67,6 +69,10 @@ namespace Navigator.Client.Controllers
         [HttpPut]
         public async Task<HttpStatusCodeResult> EditKPIChart(KpiChartContract chart)
         {
+            if (!ModelState.IsValid)
+            {
+
+            }
 
             await _proxy.PutChartDataAsync(chart);
 
@@ -76,6 +82,10 @@ namespace Navigator.Client.Controllers
         [HttpPut]
         public async Task<HttpStatusCodeResult> EditKPICategory(KpiCategoryContract category)
         {
+            if (!ModelState.IsValid)
+            {
+
+            }
 
             await _proxy.PutCategoryAsync(category);
 
@@ -90,8 +100,19 @@ namespace Navigator.Client.Controllers
             return new HttpStatusCodeResult(HttpStatusCode.OK);
         }
         [HttpPost]
+        //[ValidateAntiForgeryToken]
         public async Task<ActionResult> CreateKPIChart(KpiChartContract chart)
         {
+            if (!ModelState.IsValid)
+            {
+
+            }
+            //var additionalInfo = new KpiAdditionalContentContract
+            //{
+            //    ChartId = 0,
+            //    Content = ""
+            //};
+            //chart.AdditionalContent = additionalInfo;
 
             var newId = await _proxy.PostChartDataAsync(chart);
 

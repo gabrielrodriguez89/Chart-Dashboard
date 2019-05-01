@@ -136,9 +136,13 @@ ul {
     flex-direction: row;
     flex-flow: wrap;
     flex-wrap: wrap;
+    margin: 30px;
 }
 .port-chart {
+    position: relative;
     width: 100%;
+    /* margin: 0 15px; */
+    padding: 5px 10px;
 }
 
 .kpi-chart-cog.fade {
@@ -317,9 +321,18 @@ ul {
     font-size: 18px;
 }
 .btn-group-inline.save {
-    bottom: -72px;
-    right: 5px;
+    bottom: -115px;
+    right: 0;
     position: absolute;
+    width: 100%;
+    z-index: 10;
+}
+.btn-group-inline.save > button {
+    margin: 0 0px 0 20px;
+}
+.btn-group-inline.save-2 {
+    right: 5px;
+    position: relative;
     width: 100%;
 }
 .btn-group-inline span {
@@ -397,7 +410,7 @@ ul {
 }
 
 .chart-component {
-    margin: 4% 0;
+    margin: 6% 0;
     display: flex;
     flex-flow: wrap;
     flex-direction: column;
@@ -444,19 +457,19 @@ ul {
     border: 1px solid #808080;
     padding: 0 8px;
     border-radius: 4px;
-    margin: 0px 2px 0 2px;
+    margin: 0px 0 0 2px;
     top: 1px;
     z-index: 11;
 }
 .myemma-btn {
     position: relative;
-    line-height: 1.3;
+    line-height: 1.4;
     background-color: transparent;
     border: 1px solid #808080;
-    padding: 3px 8px;
+    padding: 2px 8px;
     border-radius: 4px;
     margin: 0px 2px 0 2px;
-    top: 0;
+    top: -1px;
 }
 .myemma-btn:hover,
 .port-chart-button:hover {
@@ -496,20 +509,44 @@ div.thumbnail-wrapper > img {
 }
 
 .ck-editor {
-    margin-left: 3%;
-    width: 450px;
+    margin: 0 auto;
+    width: 80%;
+    word-break: break-word;
+}
+.ck-editor > .chart-btn-group-footer > .port-chart-button {
+    position: relative;
+    background-color: transparent;
+    border: 1px solid #808080;
+    padding: 0 8px;
+    border-radius: 4px;
+    margin: 0px 0 0 2px;
+    top: -15px;
+    z-index: 11;
+}
+.ck-editor > .chart-btn-group-footer > .port-chart-button-init {
+    position: relative;
+    background-color: transparent;
+    border: 1px solid #808080;
+    padding: 0 8px;
+    border-radius: 4px;
+    margin: 0px 0 0 2px;
+    top: -100%;
+    z-index: 11;
 }
 
 .editor {
     position: absolute;
-    z-index: 10;
-    top: -24px;
+    z-index: 1;
+    top: 1%;
+    left: 0;
+    width: 100%;
 }
 
 .chart-component > span {
 }
 
 .sub-content {
+    margin-top: 15px;
     text-align: center;
 }
 
@@ -574,8 +611,8 @@ div.thumbnail-wrapper > img {
 
 .chart-btn-group {
     position: absolute;
-    right: 2%;
-    top: 4%;
+    right: 1%;
+    top: -7%;
     height: 45px;
     z-index: 1;
 }
@@ -587,7 +624,115 @@ div.thumbnail-wrapper > img {
 }
 .chart-btn-group-footer {
     position: absolute;
+    bottom: -13%;
     right: 2%;
-    height: 45px;
+    height: auto;
+    width: auto;
     z-index: 1;
+}
+.chart-wrapper {
+    /* float: left; */
+    margin: 10px 0px;
+    padding-bottom: 4%;
+    position: relative;
+    width: 50%;
+    height: 100%;
+}
+.container {
+    width: 80%;
+}
+@media (max-width: 768px ){
+    .container {
+        margin-right: auto;
+        margin-left: auto;
+        padding-left: 0; 
+        padding-right: 0; 
+
+        width: 100%;
+    }
+
+    .chart-btn-group {
+        position: absolute;
+        left: 18px;
+        top: -7%;
+        height: 45px;
+        z-index: 1;
+    }
+    .chart-wrapper {
+        /* float: left; */
+        margin: 40px 0px;
+        padding-bottom: 15%;
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+    .drag-div {
+        position: absolute;
+        width: 100%;
+        z-index: 11;
+    }
+    .chart-btn-group-footer {
+        position: absolute;
+        bottom: 0%;
+        right: 8%;
+        height: 45px;
+        width: 96%;
+        z-index: 1;
+    }
+    .chart-component {
+        margin: 16% 0;
+        width: 100%;
+    }
+    .ck-editor > .chart-btn-group-footer > .port-chart-button {
+        position: relative;
+        background-color: transparent;
+        border: 1px solid #808080;
+        padding: 0 8px;
+        border-radius: 4px;
+        margin: 0px 0 0 2px;
+        top: 0px;
+        left: 0;
+        z-index: 11;
+    }
+    .chart-overlay {
+        position: absolute;
+        top: -20px;
+        left: 5%;
+        background-color: #ffffff;
+        color: slategrey;
+        border: 1px solid rgba(112, 112, 112, 0.3);
+        width: 90%;
+        height: auto;
+        border-radius: 2px;
+        -moz-border-radius: 5px;
+        -webkit-border-radius: 5px;
+        box-shadow: 2px 4px 2px 0 rgba(112, 112, 112, 0.2);
+        -moz-box-shadow: 2px 4px 2px 0 rgba(112, 112, 112, 0.3);
+        -webkit-box-shadow: 2px 4px 2px 0 rgba(112, 112, 112, 0.3);
+        z-index: 10;
+        opacity: 0.935;
+        padding: 10px 15px 15px 10px;
+        outline-style: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+    }
+    .kpi-dashboard-wrapper {
+        width: 100%;
+
+    }
+    .content-body {
+        padding: 0;
+    }
+    .text-center {
+        text-align: center;
+        margin: 10%;
+    }
+    .chart-flow {
+        display: flex;
+        flex-direction: row;
+        flex-flow: wrap;
+        flex-wrap: wrap;
+         margin: 0px; 
+    }
 }

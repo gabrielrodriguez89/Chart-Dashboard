@@ -14,8 +14,9 @@
     @Styles.Render("~/content/ckeditor")
     @Styles.Render("~/Content/azure-storage-plugin")
     @Styles.Render("~/Content/KpiDashboard.css")
+    @Styles.Render("~/Content/select2")
     <style>
-
+     
     
     </style>
 }
@@ -31,11 +32,11 @@
             </button>
         </div>
         <div class="container">
-            <h2 class="text-center">{{category.Name }}</h2>
+            <h2 class="text-center">{{ category.Name }}</h2>
             <div class="row chart-flow">
-                <div class="chart-component col-sm-6" v-for="(chart, chartIndex) in category.Charts">
-                    <chart-component :key="chart.Id" :chart-data="chart" @@chart-updated="updateChart" @@my-emma-import="setChartId" @@chart-deleted="deleteChart(chart.Id, chart.CategoryId)"></chart-component>
-                    <ckeditor :id="'ckeditor-' + chart.Id" v-if="chart.AdditionalContent" v-model="chart.AdditionalContent.Content" @*@@update-content="addChartContent(chart)"*@ opts="@Url.Content("~/Scripts/ckeditor/config-kpi.js")" ></ckeditor>
+                <div class="chart-wrapper" v-for="(chart, chartIndex) in category.Charts">
+                    <chart-component :key="chart.Id" :chart-data="chart" :editor-toggle="toggleEditor" @@chart-updated="updateChart" @@my-emma-import="setChartId" @@chart-deleted="deleteChart(chart.Id, chart.CategoryId)"></chart-component>
+                    <ckeditor :id="'ckeditor-' + chart.Id" v-if="chart.AdditionalContent" v-model="chart.AdditionalContent.Content" @@hide-content="hideChart(chart.Id, chart.CategoryId)" opts="@Url.Content("~/Scripts/ckeditor/config-kpi.js")" ></ckeditor>
                 </div>
             </div>
         </div>
@@ -72,7 +73,7 @@
                 </div>
             </div>
         </div>
-        <!-- Modal Import-->
+        <!-- Modal Import--><!--TODO: Change select 2 -->
         <div class="modal fade" :id="'my-emma'" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
@@ -82,9 +83,9 @@
                     </div>
                     <div class="modal-body">
                         <div v-show="!filter" class="new-chart-form">
-                            <label>Mailing Name</label>
-                            <select id="ModalMyEmma" v-on:change="selectMailing" class="form-control select2">
-                                <option value="-1"> -Select Mailing-</option>
+                            <label>Audience Name</label>
+                            <select id="ModalMyEmma" v-on:change="selectMailing" class="form-control select2" style="width:50%;">
+                                <option value="-1"> - Audience List -</option>
                                 <option v-for="data in myEmmaGroups"
                                         :value="data.member_group_id"
                                         :data-name="data.group_name"
@@ -98,7 +99,7 @@
                         <button type="button" class="btn btn-danger" data-dismiss="modal">
                             <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>&nbsp;Cancel
                         </button>
-                        <button @@click.prevent="importMyEmmaById()" type="button" class="btn btn-success" id="import-emma-confirm-btn">
+                        <button @@click.prevent="importMyEmmaById()" data-dismiss="modal" type="button" class="btn btn-success" id="import-emma-confirm-btn">
                             <span class="glyphicon glyphicon-check" aria-hidden="true"></span>&nbsp;Import
                         </button>
                     </div>
@@ -145,7 +146,9 @@
                     showEditor: false,
                     isLoading: true,
                     isAdmin: @Convert.ToString(isAdmin).ToLower(),
-                    content: ""
+                    content: "",
+                    editorOpen: false,
+                    toggleEditor: {Id:0,Toggle:false}
                 }
             },
             beforeCreate: function () {
@@ -153,15 +156,6 @@
             },
             mounted: function() {
                 var self = this;
-                //window.addEventListener("beforeunload",
-                //    function(e) {
-                //        if (self.anyDirty()) {
-                //            var confirmationMessage = "If you leave before saving, your changes will be lost.";
-
-                //            (e || window.event).returnValue = confirmationMessage; //Gecko + IE
-                //            return confirmationMessage; //Gecko + Webkit, Safari, Chrome etc.
-                //        }
-                //    });
 
                 self.isLoading = false;
 
@@ -187,6 +181,24 @@
                     var self = this;
                     self.chartId = chart;
                     self.categoryId = category;
+                },
+                hideChart: function (chartId, categoryId) {
+                    var self = this;
+
+                    var category = _.find(this.data.Categories,
+                        function (c) {
+                            return c.Id === categoryId;
+                        });
+                    var chart = _.find(category.Charts,
+                        function (c) {
+                            return c.Id === chartId;
+                        });
+                    self.editorOpen = !self.editorOpen;
+
+                    self.toggleEditor = {
+                        Id: chart.Id,
+                        Toggle: self.editorOpen
+                    }
                 },
                 createNewChart: function(category) {
                     var self = this;
@@ -255,7 +267,7 @@
                     var goal = y * .10 + y;
                     var date = new Date();
                     var year = date.getFullYear();
-                    var month = date.getMonth().toString() < 2
+                    var month = date.getMonth().toString().length < 2
                         ? "0" + (1 + date.getMonth())
                         : (1 + date.getMonth());
                     var x = year + "-" + month;
@@ -289,7 +301,8 @@
                     var self = this;
                     self.myEmmaSearch = _.cloneDeep(data);
                     self.filter = false;
-                ,       
+                },
+         
                 updateChart: function(newId, categoryId) {
                     var category = _.find(this.data.Categories,
                         function(c) {
@@ -315,7 +328,9 @@
                         {
                             method: "GET",
                             url: "@Url.Action("GetMyEmmaTotalsByFilter", "Divisions")",
-                            ,
+                            //data: AddAntiForgeryToken({
+                            //   Category: category
+                            //}),
                             data: {
                                 name: self.filterName,
                                 year: year
@@ -334,7 +349,7 @@
                     var optOut = self.OptOutCounter;
 
                     self.setData(count, self.chartId, self.categoryId);
-
+                    
                 },
                 deleteChart: function(chartId, categoryId) {
                     if (confirm(
@@ -354,11 +369,16 @@
                                 {
                                     method: "DELETE",
                                     url: "@Url.Action("DeleteKPIChart", "KpiDashboard")",
-                                    ,
+                                    //data: AddAntiForgeryToken({
+                                    //   Category: category
+                                    //}),
                                     data: "id=" + chartId,
                                     success: function() {
 
                                         self.removeChart(chartId, categoryId);
+
+                                        //self.originalChartData = _.cloneDeep(self.chart);
+                                        //self.resetAdminToolDisplay();
                                     }
                                 });
                         }
